@@ -198,7 +198,7 @@ public class Level {
 	//Please make sure you read the rubric/directions carefully and implement the solution recursively!
 	private void water(int col, int row, Map map, int fullness) {
 
-		Water w;
+		Water w=null;
 
 		if (fullness == 3){
 			w = new Water (col, row, tileSize, tileset.getImage("Full_water"), this, fullness);
@@ -243,7 +243,7 @@ public class Level {
 		!(map.getTiles()[col-1][row].isSolid()) && !canGoDown) {
 			// if the current fullness is a quarter block.
 			if (fullness == 1){
-				water(col+1, row, map, fullness);
+				water(col-1, row, map, fullness);
 			}
 			else {water(col-1, row, map, fullness-1);}
 		}
