@@ -2,6 +2,10 @@ package gamelogic.tiles;
 
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.awt.Color;
+import java.io.IOException;
+import javax.imageio.ImageIO;
+import java.io.File;
 
 import gameengine.GameObject;
 import gameengine.hitbox.RectHitbox;
@@ -28,7 +32,30 @@ public class Tile{
 	public void update (float tslf) {};
 	
 	public void draw (Graphics g) {
-		if(image != null) g.drawImage(image, (int)position.x, (int)position.y, size, size, null);
+		if(image != null && level.touchingGas) {
+
+			int width = image.getWidth();
+			int height = image.getHeight();
+			BufferedImage outputImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+
+			for (int x = 0; x < width; x++) {
+            	for (int y = 0; y < height; y++) {
+                	int rgba = image.getRGB(x, y);
+                	Color color = new Color(rgba, true);
+
+                	int red = 255 - color.getRed();
+                	int green = 255 - color.getGreen();
+                	int blue = 255 - color.getBlue();
+
+                	Color invertedColor = new Color(red, green, blue);
+                	outputImage.setRGB(x, y, invertedColor.getRGB());
+            	}
+        	}
+
+			g.drawImage(outputImage, (int)position.x, (int)position.y, size, size, null);
+		} else if (image != null){
+			g.drawImage(image, (int)position.x, (int)position.y, size, size, null);
+		}
 		
 		if(hitbox != null) hitbox.draw(g);		
 	}

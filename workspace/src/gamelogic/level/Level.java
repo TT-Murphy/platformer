@@ -11,6 +11,8 @@ import gameengine.loaders.Tileset;
 import gamelogic.GameResources;
 import gamelogic.Main;
 import gamelogic.enemies.Enemy;
+import gamelogic.enemies.Pea;
+import gamelogic.enemies.PeaShooter;
 import gamelogic.player.Player;
 import gamelogic.tiledMap.Map;
 import gamelogic.tiles.Flag;
@@ -23,9 +25,10 @@ import gamelogic.tiles.Water;
 
 public class Level {
 
+	public boolean touchingGas = false;
+
 	private LevelData leveldata;
 	private Map map;
-	private Enemy[] enemies;
 	public static Player player;
 	private Camera camera;
 
@@ -36,6 +39,8 @@ public class Level {
 	private ArrayList<Enemy> enemiesList = new ArrayList<>();
 	private ArrayList<Flower> flowers = new ArrayList<>();
 	private ArrayList<Water> waters = new ArrayList<>();
+	private ArrayList<Gas> gasses = new ArrayList<>();
+	public ArrayList<Pea> peas = new ArrayList<>();
 
 	private List<PlayerDieListener> dieListeners = new ArrayList<>();
 	private List<PlayerWinListener> winListeners = new ArrayList<>();
@@ -64,6 +69,9 @@ public class Level {
 		int[][] values = mapdata.getValues();
 		Tile[][] tiles = new Tile[width][height];
 		waters = new ArrayList();
+		gasses = new ArrayList();
+		enemiesList.clear(); // Clear old enemies
+    	peas.clear();
 
 		for (int x = 0; x < width; x++) {
 			int xPosition = x;
@@ -106,12 +114,18 @@ public class Level {
 					tiles[x][y] = new SolidTile(xPosition, yPosition, tileSize, tileset.getImage("Solid_up"), this);
 				else if (values[x][y] == 14)
 					tiles[x][y] = new SolidTile(xPosition, yPosition, tileSize, tileset.getImage("Solid_middle"), this);
-				else if (values[x][y] == 15)
+				else if (values[x][y] == 15){
 					tiles[x][y] = new Gas(xPosition, yPosition, tileSize, tileset.getImage("GasOne"), this, 1);
-				else if (values[x][y] == 16)
+					gasses.add((Gas)tiles[x][y]);
+				}
+				else if (values[x][y] == 16){
 					tiles[x][y] = new Gas(xPosition, yPosition, tileSize, tileset.getImage("GasTwo"), this, 2);
-				else if (values[x][y] == 17)
+					gasses.add((Gas)tiles[x][y]);
+				}
+				else if (values[x][y] == 17){
 					tiles[x][y] = new Gas(xPosition, yPosition, tileSize, tileset.getImage("GasThree"), this, 3);
+					gasses.add((Gas)tiles[x][y]);
+				}
 				else if (values[x][y] == 18){
 					tiles[x][y] = new Water(xPosition, yPosition, tileSize, tileset.getImage("Falling_water"), this, 0);
 					waters.add((Water)tiles[x][y]);
@@ -128,15 +142,16 @@ public class Level {
 					tiles[x][y] = new Water(xPosition, yPosition, tileSize, tileset.getImage("Quarter_water"), this, 1);
 					waters.add((Water)tiles[x][y]);
 					}
+				else if (values[x][y] == 22){
+					enemiesList.add(new PeaShooter(xPosition*tileSize, yPosition*tileSize, this));
+					System.out.println("tried to make a pea");	
+				}
 			}
 
 		}
-		enemies = new Enemy[enemiesList.size()];
+		
 		map = new Map(width, height, tileSize, tiles);
 		camera = new Camera(Main.SCREEN_WIDTH, Main.SCREEN_HEIGHT, 0, map.getFullWidth(), map.getFullHeight());
-		for (int i = 0; i < enemiesList.size(); i++) {
-			enemies[i] = new Enemy(enemiesList.get(i).getX(), enemiesList.get(i).getY(), this);
-		}
 		player = new Player(leveldata.getPlayerX() * map.getTileSize(), leveldata.getPlayerY() * map.getTileSize(),
 				this);
 		camera.setFocusedObject(player);
@@ -202,16 +217,36 @@ public class Level {
 					didITouchWater = true;
 				}
 			}
+
 			if (!didITouchWater){
 				player.walkSpeed = 400;
 			}
 
+			boolean didITouchGas = false;
+			for (Gas gas : gasses){
+				if (gas.getHitbox().isIntersecting(player.getHitbox())){
+					didITouchGas = true;
+					touchingGas = true;
+				}
+			}
+			if (!didITouchGas){
+				touchingGas = false;
+			}
+
 			// Update the enemies
-			for (int i = 0; i < enemies.length; i++) {
-				enemies[i].update(tslf);
-				if (player.getHitbox().isIntersecting(enemies[i].getHitbox())) {
+			for (int i = 0; i < enemiesList.size(); i++) {
+				enemiesList.get(i).update(tslf);
+				if (player.getHitbox().isIntersecting(enemiesList.get(i).getHitbox())) {
 					onPlayerDeath();
 				}
+			}
+			// Update the peas
+			for (int i = 0; i < peas.size(); i++) {
+				peas.get(i).update(tslf);
+				if (player.getHitbox().isIntersecting(peas.get(i).getHitbox())) {
+					onPlayerDeath();
+				}
+				peas.removeIf(p -> p.removed);
 			}
 
 			// Update the map
@@ -335,10 +370,13 @@ public class Level {
 
 
 	   	 // Draw the enemies
-	   	 for (int i = 0; i < enemies.length; i++) {
-	   		 enemies[i].draw(g);
+	   	 for (int i = 0; i < enemiesList.size(); i++) {
+	   		 enemiesList.get(i).draw(g);
 	   	 }
 
+		  for (int i = 0; i < peas.size(); i++) {
+	   		 peas.get(i).draw(g);
+	   	 }
 
 	   	 // Draw the player
 	   	 player.draw(g);
@@ -401,6 +439,7 @@ public class Level {
 // post conditions: creates numSquaresToFill number of gas blocks in the specified pattern, unless there is nowhere for the gas to spread. 
 	private void addGas(int col, int row, Map map, int numSquaresToFill, ArrayList<Gas> placedThisRound) {
 		Gas g = new Gas (col, row, tileSize, tileset.getImage("GasOne"), this, 0);
+		gasses.add(g);
 		map.addTile(col, row, g);
 		numSquaresToFill--;
 		placedThisRound.add(g);
@@ -416,6 +455,7 @@ public class Level {
 				
 				if (row-1 < map.getTiles()[0].length && !(map.getTiles()[col][row-1].isSolid()) && !(map.getTiles()[col][row-1] instanceof Gas)&& numSquaresToFill>0){
 					Gas x = new Gas (col, row-1, tileSize, tileset.getImage("GasOne"), this, 0);
+					gasses.add(x);
 					map.addTile(col, row-1, x);
 					placedThisRound.add(x);
 					numSquaresToFill--;
@@ -423,6 +463,7 @@ public class Level {
 				if (row-1 < map.getTiles()[0].length && col+1 < map.getTiles().length &&
 				!(map.getTiles()[col+1][row-1].isSolid()) && !(map.getTiles()[col+1][row-1] instanceof Gas) && numSquaresToFill>0){
 					Gas x = new Gas (col+1, row-1, tileSize, tileset.getImage("GasOne"), this, 0);
+					gasses.add(x);
 					map.addTile(col+1, row-1, x);
 					placedThisRound.add(x);
 					numSquaresToFill--;
@@ -430,6 +471,7 @@ public class Level {
 				if (row-1 < map.getTiles()[0].length && col-1 < map.getTiles().length &&
 				!(map.getTiles()[col-1][row-1].isSolid()) && !(map.getTiles()[col-1][row-1] instanceof Gas) && numSquaresToFill>0){
 					Gas x = new Gas (col-1, row-1, tileSize, tileset.getImage("GasOne"), this, 0);
+					gasses.add(x);
 					map.addTile(col-1, row-1, x);
 					placedThisRound.add(x);
 					numSquaresToFill--;
@@ -437,6 +479,7 @@ public class Level {
 				if (col+1 < map.getTiles().length &&
 				!(map.getTiles()[col+1][row].isSolid()) && !(map.getTiles()[col+1][row] instanceof Gas) && numSquaresToFill>0){
 					Gas x = new Gas(col+1, row, tileSize, tileset.getImage("GasOne"), this, 0);
+					gasses.add(x);
 					map.addTile(col+1, row, x);
 					placedThisRound.add(x);
 					numSquaresToFill--;
@@ -444,6 +487,7 @@ public class Level {
 				if (col-1 < map.getTiles().length &&
 				!(map.getTiles()[col-1][row].isSolid()) && !(map.getTiles()[col-1][row] instanceof Gas) && numSquaresToFill>0){
 					Gas x = new Gas (col-1, row, tileSize, tileset.getImage("GasOne"), this, 0);
+					gasses.add(x);
 					map.addTile(col-1, row, x);
 					placedThisRound.add(x);
 					numSquaresToFill--;
@@ -451,6 +495,7 @@ public class Level {
 				if (row+1 < map.getTiles()[0].length &&
 				!(map.getTiles()[col][row+1].isSolid()) && !(map.getTiles()[col][row+1] instanceof Gas) && numSquaresToFill>0){
 					Gas x = new Gas (col, row+1, tileSize, tileset.getImage("GasOne"), this, 0);
+					gasses.add(x);
 					map.addTile(col, row+1, x);
 					placedThisRound.add(x);
 					numSquaresToFill--;
@@ -458,6 +503,7 @@ public class Level {
 				 if (row+1 < map.getTiles()[0].length && col+1 < map.getTiles().length &&
 				!(map.getTiles()[col+1][row+1].isSolid()) && !(map.getTiles()[col+1][row+1] instanceof Gas) && numSquaresToFill>0){
 					Gas x = new Gas (col+1, row+1, tileSize, tileset.getImage("GasOne"), this, 0);
+					gasses.add(x);
 					map.addTile(col+1, row+1, x);
 					placedThisRound.add(x);
 					numSquaresToFill--;
@@ -465,6 +511,7 @@ public class Level {
 				if (row+1 < map.getTiles()[0].length && col-1 < map.getTiles().length &&
 				!(map.getTiles()[col-1][row+1].isSolid()) && !(map.getTiles()[col-1][row+1] instanceof Gas) && numSquaresToFill>0){
 					Gas x = new Gas (col-1, row+1, tileSize, tileset.getImage("GasOne"), this, 0);
+					gasses.add(x);
 					map.addTile(col-1, row+1, x);
 					placedThisRound.add(x);
 					numSquaresToFill--;

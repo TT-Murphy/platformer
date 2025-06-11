@@ -11,7 +11,7 @@ import gamelogic.level.Level;
 public class Enemy extends PhysicsObject{
 
 	private float walkSpeed = 80;
-	private BufferedImage image;
+	protected BufferedImage image;
 	
 	public Enemy(float x, float y, Level level) {
 		super(x, y,(int)(level.getLevelData().getTileSize()*1.5), (int)(level.getLevelData().getTileSize()*1.5), level);
